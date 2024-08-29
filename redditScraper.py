@@ -46,8 +46,11 @@ def exit_handler():
 try:
     print("Starting Sentiment Analysis Bot")
     bot_username = reddit.user.me().name
+
+    #Initializing spaCy + spaCy TextBlob
     nlp = spacy.load('en_core_web_sm')
     nlp.add_pipe('spacytextblob')
+
     for subreddit in subreddits:
 
         for submission in reddit.subreddit(subreddit):
