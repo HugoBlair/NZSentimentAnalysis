@@ -1,27 +1,16 @@
-from datetime import datetime
 import os
 import praw
-
+import re
 import spacy
 from spacytextblob.spacytextblob import SpacyTextBlob
+import requests
 
 #Accessing the reddit API details from my praw.ini file (which is in the same directory as the script)
 #This information is kept private and not included in the repository
-reddit = praw.Reddit('sentimentAnalysisBot')
-
-#Subreddit list
-subreddits = {
-    "wellington",
-    "auckland",
-    "thetron",
-    "chch",
-    "dunedin",
-    "tauranga",
-    "newzealand"
-}
+reddit = praw.Reddit("bot1")
 
 #Choosing the subreddits to search for comments in
-subreddit = reddit.subreddit()
+subreddits = reddit.subreddit("wellington+auckland+thetron+chch+dunedin+tauranga+newzealand")
 
 #Load comments replied to from file
 if not os.path.isfile("comments_replied_to.txt"):
@@ -46,27 +35,46 @@ def exit_handler():
 try:
     print("Starting Sentiment Analysis Bot")
     bot_username = reddit.user.me().name
-    nlp = spacy.load('en_core_web_sm')
+    print("Logged in as " + bot_username)
+
+    #Loading spaCy
+    nlp = spacy.load("en_core_web_sm")
     nlp.add_pipe('spacytextblob')
-    for subreddit in subreddits:
+    print("Initalized spaCy")
 
-        for submission in reddit.subreddit(subreddit):
-            doc = nlp(submission.body)
-            submission_polarity = doc._.blob.polarity
-            print("Submission polarity: " + str(submission_polarity))
-            for comment in submission:
-                print("Found new comment")
-                if comment.author.name != bot_username:
-                    if comment.id not in comments_replied_to:
-                        doc = nlp(comment.body)
-                    else:
-                        print("Already replied to comment")
-                        print(comment.body)
+    for submission in subreddits.hot(limit=3):
+        doc = nlp(submission.title)
+        print(submission.title)
+        submission_title_polarity = doc._.blob.polarity
+        submission_title_subjectivity = doc._.blob.subjectivity
+        doc = nlp(submission.selftext)
+        submission_body_polarity = doc._.blob.polarity
+        submission_body_subjectivity = doc._.blob.subjectivity
+
+        for comment in submission.comments:
+            print("Found new comment")
+            if comment.author.name != bot_username:
+                if comment.id not in comments_replied_to:
+                    doc = nlp(comment.body)
+                else:
+                    print("Already replied to comment")
+                    print(comment.body)
+                    comments_replied_to.append(comment.id)
 
 
 
 
 
+
+#Catching case where spaCy's model in not installed
+except OSError:
+    from spacy.cli import download
+    download("en_core_web_sm")
+    #Exiting cleanly when the program is interrupted by the user
 except KeyboardInterrupt:
     print("Stopped by user")
+    exit_handler()
+#Exiting cleanly when the program is interrupted by the user
+except Exception:
+    print("Unknown Program Failure")
     exit_handler()
