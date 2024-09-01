@@ -14,7 +14,9 @@ from transformers import pipeline
 import torch
 
 # Initialize the zero-shot classification pipeline
-classifier = pipeline('zero-shot-classification', model='facebook/bart-large-mnli')
+device = 0 if torch.cuda.is_available() else -1
+torch.set_default_device('cuda' if torch.cuda.is_available() else 'cpu')
+classifier = pipeline('zero-shot-classification', model='facebook/bart-large-mnli', device=device)
 
 '''
 Additional required files:
@@ -383,7 +385,7 @@ def insert_comment(comment, comment_nlp, topic):
 try:
     print("Starting Sentiment Analysis Bot")
 
-    for submission in subreddits.hot(limit=5):
+    for submission in subreddits.new(limit=100000):
 
         if not submission_cache.submission_exists(submission.id):
             submission_title_processed = perform_nlp(submission.title)
@@ -391,7 +393,9 @@ try:
             submission_text = "Post Title:" + submission.title + "Body:" + submission.selftext + "Comments:"
 
             for comment in submission.comments:
-                submission_text += comment.body + ". Comment:"
+                if comment.body and comment.body != "":
+                    submission_text += comment.body + ". Comment:"
+
             classification_prediction = perform_classification(submission_text)
             insert_submission(submission, submission_title_processed, submission_body_processed,
                               classification_prediction)
@@ -417,6 +421,7 @@ try:
 except OSError:
     from spacy.cli import download
 
+    print("Installing spaCy")
     download("en_core_web_lg")
 
 # Exiting cleanly when the program is interrupted by the user
