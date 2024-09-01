@@ -2,6 +2,7 @@ import json
 import os
 import traceback
 from typing import Dict, Any
+from zoneinfo import ZoneInfo
 
 import praw
 import re
@@ -10,7 +11,7 @@ from google.cloud.bigquery import DatasetReference
 from spacytextblob.spacytextblob import SpacyTextBlob
 import requests
 from google.cloud import bigquery
-from datetime import datetime
+from datetime import datetime, timezone
 from transformers import pipeline
 import torch
 
@@ -168,7 +169,8 @@ class NLPData:
 reddit = praw.Reddit("bot1")
 
 # Choosing the subreddits to search for comments in
-subreddits = reddit.subreddit("wellington+auckland+thetron+chch+dunedin+tauranga+newzealand")
+subreddits = reddit.subreddit("wellington+auckland+thetron+chch+dunedin+tauranga+newzealand+palmy+napier+newplymouth"
+                              "+hawkesbay+NelsonNZ+queenstown")
 
 # List of acceptable labels for NLP tagging
 labels = {
