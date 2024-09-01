@@ -2,8 +2,6 @@ import json
 import os
 import traceback
 from typing import Dict, Any
-from zoneinfo import ZoneInfo
-
 import praw
 import re
 import spacy
@@ -15,6 +13,7 @@ from datetime import datetime, timezone
 from transformers import pipeline
 import torch
 
+# Initialize the zero-shot classification pipeline
 classifier = pipeline('zero-shot-classification', model='facebook/bart-large-mnli')
 
 '''
@@ -31,6 +30,12 @@ it is easier to have my database more compact
 
 
 def create_tables():
+    """
+    Create BigQuery tables for storing submission and comment data.
+
+    This function defines the schema for 'submission' and 'comment' tables
+    and creates them in BigQuery if they don't already exist.
+    """
     print("Creating BigQuery tables")
     schemas = {
         'submission': [
@@ -73,13 +78,32 @@ def create_tables():
 
 
 class SubmissionCache:
+    """
+    A class to manage caching of processed Reddit submissions and comments.
+
+    This class handles loading, saving, and updating a local cache file
+    to prevent reprocessing of already analyzed submissions and comments.
+    """
+
     def __init__(self, filename: str, bigquery_client: bigquery.Client, dataset_ref: bigquery.DatasetReference):
+        """
+        Initialize the SubmissionCache.
+
+        :param filename: Name of the cache file
+        :param bigquery_client: BigQuery client instance
+        :param dataset_ref: BigQuery dataset reference
+        """
         self.filename = filename
         self.bigquery_client = bigquery_client
         self.dataset_ref = dataset_ref
         self.cache: Dict[str, Any] = self.load()
 
     def load(self) -> Dict[str, Any]:
+        """
+        Load the cache from a file or rebuild it from BigQuery if the file doesn't exist.
+
+        :return: Dictionary containing the cache data
+        """
         if os.path.exists(self.filename):
             with open(self.filename, 'r') as f:
                 return json.load(f)
@@ -88,6 +112,11 @@ class SubmissionCache:
             return self.rebuild_from_bigquery()
 
     def rebuild_from_bigquery(self) -> Dict[str, Any]:
+        """
+        Rebuild the cache by querying BigQuery for existing submissions and comments.
+
+        :return: Dictionary containing the rebuilt cache data
+        """
         cache = {"submissions": {}, "comments": {}}
 
         # Fetch submissions
@@ -112,30 +141,69 @@ class SubmissionCache:
         return cache
 
     def save(self, cache=None):
+        """
+        Save the current cache to a file.
+
+        :param cache: Optional cache data to save. If None, saves the current instance cache.
+        """
         if cache is None:
             cache = self.cache
         with open(self.filename, 'w') as f:
             json.dump(cache, f, indent=2)
 
     def submission_exists(self, submission_id: str) -> bool:
+        """
+        Check if a submission exists in the cache.
+
+        :param submission_id: ID of the submission to check
+        :return: True if the submission exists in the cache, False otherwise
+        """
         return submission_id in self.cache["submissions"]
 
     def get_submission_classification(self, submission_id: str) -> Dict[str, Any]:
+        """
+        Get the classification data for a submission from the cache.
+
+        :param submission_id: ID of the submission
+        :return: Classification data for the submission
+        """
         if submission_id in self.cache["submissions"]:
             return self.cache["submissions"][submission_id]
 
     def comment_exists(self, comment_id: str) -> bool:
+        """
+        Check if a comment exists in the cache.
+
+        :param comment_id: ID of the comment to check
+        :return: True if the comment exists in the cache, False otherwise
+        """
         return comment_id in self.cache["comments"]
 
     def add_submission(self, submission_id: str, data: Any):
+        """
+        Add a submission to the cache.
+
+        :param submission_id: ID of the submission
+        :param data: Data associated with the submission
+        """
         self.cache["submissions"][submission_id] = data
         self.save()
 
     def add_comment(self, comment_id: str):
+        """
+        Add a comment to the cache.
+
+        :param comment_id: ID of the comment
+        """
         self.cache["comments"][comment_id] = {}
         self.save()
 
     def __len__(self) -> int:
+        """
+        Get the total number of submissions and comments in the cache.
+
+        :return: Total count of cached items
+        """
         return len(self.cache["submissions"]) + len(self.cache["comments"])
 
 
@@ -158,7 +226,21 @@ print("Initialized spaCy")
 
 
 class NLPData:
+    """
+    A class to store NLP processing results for text data.
+
+    This class holds polarity, subjectivity, and entity information
+    extracted from text using NLP techniques.
+    """
+
     def __init__(self, polarity, subjectivity, entities):
+        """
+        Initialize NLPData instance.
+
+        :param polarity: Sentiment polarity score
+        :param subjectivity: Subjectivity score
+        :param entities: List of extracted entities
+        """
         self.polarity = polarity
         self.subjectivity = subjectivity
         self.entities = entities
@@ -186,6 +268,12 @@ classification_topics = ["Politics", "Economics", "Sports", "Technology", "Envir
 # Function to retrieve all submission ids from bigquery
 # @param data_type either 'comment' or 'submission'
 def get_ids_from_bigquery(data_type):
+    """
+    Retrieve all submission or comment IDs from BigQuery.
+
+    :param data_type: Either 'comment' or 'submission'
+    :return: Set of IDs or None if the query fails
+    """
     try:
         data_type_id = data_type + "_id"
         query = """
@@ -205,11 +293,20 @@ def get_ids_from_bigquery(data_type):
 
 # Function to save comments replied to
 def exit_handler():
+    """
+    Handle program exit by saving the submission cache.
+    """
     print("Exiting")
     submission_cache.save()
 
 
 def perform_nlp(doc):
+    """
+    Perform NLP analysis on the given text.
+
+    :param doc: Input text to analyze
+    :return: NLPData object containing polarity, subjectivity, and entities
+    """
     processed_doc = nlp(doc)
     entities = []
     for ent in processed_doc.ents:
@@ -220,6 +317,12 @@ def perform_nlp(doc):
 
 
 def perform_classification(doc):
+    """
+    Perform zero-shot classification on the given text.
+
+    :param doc: Input text to classify
+    :return: Predicted topic label
+    """
     hypothesis_template = 'This text is about {}.'
     prediction = classifier(doc, classification_topics, hypothesis_template=hypothesis_template, multi_label=True)
     if prediction and prediction['labels']:
@@ -227,6 +330,14 @@ def perform_classification(doc):
 
 
 def insert_submission(submission, title_nlp, body_nlp, topic):
+    """
+    Insert a submission's data into BigQuery.
+
+    :param submission: Reddit submission object
+    :param title_nlp: NLPData for the submission title
+    :param body_nlp: NLPData for the submission body
+    :param topic: Classified topic for the submission
+    """
     rows_to_insert = [{
         'submission_id': submission.id,
         'title_polarity': title_nlp.polarity,
@@ -240,11 +351,19 @@ def insert_submission(submission, title_nlp, body_nlp, topic):
         'topic': topic
     }]
     errors = client.insert_rows_json(dataset_ref.table('submission'), rows_to_insert)
+    print("Inserted Submission: {}".format(submission.id))
     if errors:
         print(f"Errors inserting submission: {errors}")
 
 
 def insert_comment(comment, comment_nlp, topic):
+    """
+    Insert a comment's data into BigQuery.
+
+    :param comment: Reddit comment object
+    :param comment_nlp: NLPData for the comment
+    :param topic: Classified topic for the comment
+    """
     rows_to_insert = [{
         'comment_id': comment.id,
         'submission_id': comment.submission.id,
@@ -255,20 +374,10 @@ def insert_comment(comment, comment_nlp, topic):
         'topic': topic
     }]
     errors = client.insert_rows_json(dataset_ref.table('comment'), rows_to_insert)
+    print("Inserted Comment: {}".format(comment.id))
     if errors:
         print(f"Errors inserting comment: {errors}")
 
-
-'''
-# Removing stopwords from the text in order to make NLP quicker. This feature has been removed in 
-order to maintain the accuracy of the subjectivity attribute.
-def preprocess(text):
-    output_text = ""
-    for token in simple_preprocess(text):
-        if token not in STOPWORDS:
-            output_text += token + " "
-    return output_text
-'''
 
 # Main loop to search for comments
 try:
