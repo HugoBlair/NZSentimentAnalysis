@@ -392,7 +392,7 @@ try:
             submission_body_processed = perform_nlp(submission.selftext)
             submission_text = "Post Title:" + submission.title + "Body:" + submission.selftext + "Comments:"
 
-            for comment in submission.comments:
+            for comment in submission.comments.list():
                 if comment.body and comment.body != "":
                     submission_text += comment.body + ". Comment:"
 
@@ -406,7 +406,7 @@ try:
         else:
             classification_prediction = submission_cache.get_submission_classification(submission.id)
 
-        for comment in submission.comments:
+        for comment in submission.comments.list:
             # print("Found new comment")
             if not submission_cache.comment_exists(comment.id):
                 comment_processed = perform_nlp(comment.body)
