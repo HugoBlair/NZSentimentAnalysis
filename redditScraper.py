@@ -406,7 +406,7 @@ try:
         else:
             classification_prediction = submission_cache.get_submission_classification(submission.id)
 
-        for comment in submission.comments.list:
+        for comment in submission.comments.list():
             # print("Found new comment")
             if not submission_cache.comment_exists(comment.id):
                 comment_processed = perform_nlp(comment.body)
