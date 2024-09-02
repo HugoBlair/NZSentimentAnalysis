@@ -1,11 +1,15 @@
 import json
 import os
+import time
 import traceback
 from typing import Dict, Any
 import praw
 import re
+
+import prawcore
 import spacy
 from google.cloud.bigquery import DatasetReference
+from prawcore import ServerError
 from spacytextblob.spacytextblob import SpacyTextBlob
 import requests
 from google.cloud import bigquery
@@ -16,7 +20,7 @@ import torch
 # Initialize the zero-shot classification pipeline
 device = 0 if torch.cuda.is_available() else -1
 torch.set_default_device('cuda' if torch.cuda.is_available() else 'cpu')
-classifier = pipeline('zero-shot-classification', model='facebook/bart-large-mnli', device=device)
+classifier = pipeline('zero-shot-classification', model='facebook/bart-base', device=device)
 
 '''
 Additional required files:
@@ -383,59 +387,65 @@ def insert_comment(comment, comment_nlp, topic):
 
 
 # Main loop to search for comments
-try:
-    print("Starting Sentiment Analysis Bot")
+while True:
+    try:
+        print("Starting Sentiment Analysis Bot")
 
-    for submission in subreddits.new(limit=100000):
+        for submission in subreddits.new(limit=100000):
 
-        if not submission_cache.submission_exists(submission.id):
-            submission_title_processed = perform_nlp(submission.title)
-            submission_body_processed = perform_nlp(submission.selftext)
-            submission_text = "Post Title:" + submission.title + "Body:" + submission.selftext + "Comments:"
+            if not submission_cache.submission_exists(submission.id):
+                submission_title_processed = perform_nlp(submission.title)
+                submission_body_processed = perform_nlp(submission.selftext)
+                submission_text = "Post Title:" + submission.title + "Body:" + submission.selftext + "Comments:"
+                submission.comments.replace_more(limit=None)
+                iterator = 0
+                for comment in submission.comments.list():
+                    iterator += 1
+                    if iterator > 10:
+                        break
+                    if comment.body and comment.body != "":
+                        submission_text += comment.body + ". Comment:"
+
+                classification_prediction = perform_classification(submission_text)
+                insert_submission(submission, submission_title_processed, submission_body_processed,
+                                  classification_prediction)
+
+                # Update cache
+                submission_cache.add_submission(submission.id, classification_prediction)
+
+            else:
+                classification_prediction = submission_cache.get_submission_classification(submission.id)
+
             submission.comments.replace_more(limit=None)
-            iterator = 0
             for comment in submission.comments.list():
-                iterator += 1
-                if iterator > 20:
-                    break
-                if comment.body and comment.body != "":
-                    submission_text += comment.body + ". Comment:"
+                # print("Found new comment")
+                if not submission_cache.comment_exists(comment.id):
+                    comment_processed = perform_nlp(comment.body)
+                    submission_cache.add_comment(comment.id)
+                    insert_comment(comment, comment_processed, classification_prediction)
 
-            classification_prediction = perform_classification(submission_text)
-            insert_submission(submission, submission_title_processed, submission_body_processed,
-                              classification_prediction)
-
-            # Update cache
-            submission_cache.add_submission(submission.id, classification_prediction)
-
-        else:
-            classification_prediction = submission_cache.get_submission_classification(submission.id)
-
-        submission.comments.replace_more(limit=None)
-        for comment in submission.comments.list():
-            # print("Found new comment")
-            if not submission_cache.comment_exists(comment.id):
-                comment_processed = perform_nlp(comment.body)
-                submission_cache.add_comment(comment.id)
-                insert_comment(comment, comment_processed, classification_prediction)
-
-    exit_handler()
-    print("Finished Sentiment Analysis Successfully")
+        exit_handler()
+        print("Finished Sentiment Analysis Successfully")
 
 
-# Catching case where spaCy's model in not installed
-except OSError:
-    from spacy.cli import download
+    # Catching case where spaCy's model in not installed
+    except OSError:
+        from spacy.cli import download
 
-    print("Installing spaCy")
-    download("en_core_web_lg")
+        print("Installing spaCy")
+        download("en_core_web_lg")
 
-# Exiting cleanly when the program is interrupted by the user
-except KeyboardInterrupt:
-    print("Stopped by user")
-    exit_handler()
+    # Exiting cleanly when the program is interrupted by the user
+    except KeyboardInterrupt:
+        print("Stopped by user")
+        exit_handler()
+        break
 
-except Exception as e:
-    print("Unknown Program Failure")
-    print(traceback.print_exc())
-    exit_handler()
+    except Exception as e:
+        print("Unknown Program Failure")
+        print(traceback.print_exc())
+        exit_handler()
+        break
+    except prawcore.exceptions.ServerError as e:
+        print("Server Error")
+        time.sleep(200)
