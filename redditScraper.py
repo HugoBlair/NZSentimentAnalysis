@@ -260,6 +260,7 @@ subreddits = reddit.subreddit("wellington+auckland+thetron+chch+dunedin+tauranga
 labels = {
     "EVENT", "FAC", "GPE", "LAW", "LOC", "NORP", "ORG", "PERSON", "PRODUCT", "WORK_OF_ART"
 }
+# List of topics for the LLM Classifier
 classification_topics = ["Politics", "Economics", "Sports", "Technology", "Environment", "Health", "Education",
                          "Culture",
                          "Social Issues", "Transport", "Tourism", "Agriculture", "Foreign Affairs", "Housing",
