@@ -14,13 +14,13 @@ from spacytextblob.spacytextblob import SpacyTextBlob
 import requests
 from google.cloud import bigquery
 from datetime import datetime, timezone
-from transformers import pipeline
+from transformers import pipeline, BartTokenizer
 import torch
 
 # Initialize the zero-shot classification pipeline
 device = 0 if torch.cuda.is_available() else -1
 torch.set_default_device('cuda' if torch.cuda.is_available() else 'cpu')
-classifier = pipeline('zero-shot-classification', model='facebook/bart-base', device=device)
+classifier = pipeline('zero-shot-classification', model='facebook/bart-large-mnli', device=device)
 
 '''
 Additional required files:
@@ -74,6 +74,7 @@ def create_tables():
 
             ]),
             bigquery.SchemaField("topic", "STRING")
+
         ],
     }
 
@@ -331,7 +332,7 @@ def perform_classification(doc):
     :return: Predicted topic label
     """
     hypothesis_template = 'This text is about {}.'
-    prediction = classifier(doc, classification_topics, hypothesis_template=hypothesis_template, multi_label=True)
+    prediction = classifier(doc, classification_topics, hypothesis_template=hypothesis_template, multi_label=False)
     if prediction and prediction['labels']:
         return prediction['labels'][0]
 
@@ -401,7 +402,7 @@ while True:
                 iterator = 0
                 for comment in submission.comments.list():
                     iterator += 1
-                    if iterator > 10:
+                    if iterator > 5:
                         break
                     if comment.body and comment.body != "":
                         submission_text += comment.body + ". Comment:"
@@ -441,11 +442,12 @@ while True:
         exit_handler()
         break
 
+    except prawcore.exceptions:
+        print("Server Error")
+        time.sleep(200)
+
     except Exception as e:
         print("Unknown Program Failure")
         print(traceback.print_exc())
         exit_handler()
         break
-    except prawcore.exceptions.ServerError as e:
-        print("Server Error")
-        time.sleep(200)
