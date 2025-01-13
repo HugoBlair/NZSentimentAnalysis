@@ -7,12 +7,17 @@ from google.cloud import bigquery
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
+from google.oauth2 import service_account
 
 # Initialize BigQuery client
 # Configure Google BigQuery client
-file_path = "nzsentimentanalysis-3b5ec598d3b7.json"
-os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = file_path
-client = bigquery.Client()
+# file_path = "nzsentimentanalysis-3b5ec598d3b7.json"
+# os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = file_path
+# Create API client.
+credentials = service_account.Credentials.from_service_account_info(
+    st.secrets["gcp_service_account"]
+)
+client = bigquery.Client(credentials=credentials)
 
 # Define the dataset and table names
 DATASET_ID = "SentimentDB"
