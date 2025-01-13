@@ -205,7 +205,8 @@ def plot_entity_frequency(all_entities):
 # Display Streamlit App
 def main():
     st.title("Reddit Sentiment Analysis Dashboard")
-    st.write("This dashboard displays sentiment analysis of Reddit data fetched from Google BigQuery.")
+    st.write(
+        "This dashboard displays sentiment analysis of Reddit posts and comments scraped from various cities and town's subreddits. The data is stored and fetched from google BigQuery")
 
     # Sidebar
     st.sidebar.header("Filters")
