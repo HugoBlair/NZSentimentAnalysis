@@ -214,7 +214,7 @@ def main():
     # Date range filter
     start_date = st.sidebar.date_input("Start Date")
     end_date = st.sidebar.date_input("End Date")
-    min_submissions = st.sidebar.slider("Minimum number of submissions", min_value=0, max_value=1000, value=200,
+    min_submissions = st.sidebar.slider("Minimum number of submissions", min_value=0, max_value=1000, value=100,
                                         step=10)
 
     subreddits = ["Wellington", "auckland", "thetron", "chch", "dunedin", "Tauranga",
