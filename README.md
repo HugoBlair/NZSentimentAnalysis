@@ -8,7 +8,7 @@ https://hugoblair-nzsentimentanalysis-nzsentimentanalysiswebsite-dfeviv.streamli
 ## Project Overview
 This project consists of two main components:
 
-- A data collection and analysis pipeline that processes Reddit submissions and comments
+- A data collection and analysis pipeline that processes submissions and comments scraped from reddit
 - An interactive Streamlit dashboard for visualizing the analyzed data
 
 The system analyzes posts from multiple New Zealand city and regional subreddits, including:
