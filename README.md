@@ -27,6 +27,18 @@ The system analyzes posts from multiple New Zealand city and regional subreddits
 - r/NelsonNZ
 - r/queenstown
 
+## Technologies used:
+PRAW (Python Reddit API Wrapper)
+Google BigQuery
+JSON for local caching
+spaCy (en_core_web_lg model)
+SpacyTextBlob for sentiment analysis
+Hugging Face Transformers
+BART (facebook/bart-large-mnli model) for zero-shot classification
+PyTorch
+Streamlit
+Plotly
+
 ## Use case
 This tool enables researchers, policymakers, and community leaders to understand regional variations in public discourse across New Zealand. The system can identify trending topics and sentiment patterns specific to different cities and regions, revealing how different communities react to local and national issues. For example, housing discussions might show higher negative sentiment in Auckland compared to smaller cities, or environmental topics might dominate Queenstown's discourse more than urban centers. The entity recognition system can track which organizations, politicians, and locations are most frequently discussed in different regions, while analysis of trends over time could reveal how community concerns evolve. This data could be valuable for local governments understanding community priorities, businesses gauging regional market sentiment, or researchers studying the unique characteristics of New Zealand's online communities.
 
